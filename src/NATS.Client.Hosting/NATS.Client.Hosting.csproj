@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
 
@@ -9,6 +9,8 @@
         <PackageTags>pubsub;messaging</PackageTags>
         <Description>ASP.NET Core and Generic Host support for NATS.Client.</Description>
         <IsPackable>true</IsPackable>
+
+      <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
     <ItemGroup>

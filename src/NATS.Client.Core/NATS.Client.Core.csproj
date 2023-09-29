@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -10,9 +10,11 @@
         <PackageTags>pubsub;messaging</PackageTags>
         <Description>An alternative high performance NATS client for .NET.</Description>
         <IsPackable>true</IsPackable>
+        <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="System.Text.Json" Version="8.0.0-rc.2.23472.10" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
         <PackageReference Include="Microsoft.Extensions.Primitives" Version="6.0.0" />
         <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.1.46">
