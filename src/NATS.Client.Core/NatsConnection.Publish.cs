@@ -35,5 +35,9 @@ public partial class NatsConnection
     {
         return PublishAsync(msg.Subject, msg.Data, serializer, msg.Headers, msg.ReplyTo, opts, cancellationToken);
     }
+
+    public ValueTask PublishAsync(string subject, ReadOnlyMemory<byte> payload, NatsHeaders? headers = default, string? replyTo = default, NatsPubOpts? opts = default, CancellationToken cancellationToken = default)
+    {
+        return PublishAsync(subject, payload, (rom, bw) => bw.Write(rom.Span), headers, replyTo, opts, cancellationToken);
     }
 }

@@ -14,11 +14,19 @@ Print("[CON] Connecting...\n");
 
 await using var connection = new NatsConnection(options);
 
+byte[] arr = Array.Empty<byte>();
+ReadOnlyMemory<byte> rom = arr;
+Memory<byte> mem = arr;
+
 for (var i = 0; i < 10; i++)
 {
     Print($"[PUB] Publishing to subject ({i}) '{subject}'...\n");
     await connection.PublishAsync(subject, new Bar { Id = i, Name = "Baz" }, (obj, bw) => BarJsonContext.Default.Bar.Serialize(obj, bw));
     await connection.PublishAsync<Bar?>(subject, null, (obj, bw) => BarJsonContext.Default.Bar.Serialize(obj, bw));
+
+    await connection.PublishAsync(subject, arr); // ROM overload
+    await connection.PublishAsync(subject, rom); // ROM overload
+    await connection.PublishAsync(subject, mem); // ROM overload
 }
 
 void Print(string message)

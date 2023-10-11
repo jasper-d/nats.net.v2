@@ -25,6 +25,8 @@ public interface INatsConnection
     /// <returns>A <see cref="ValueTask"/> that represents the asynchronous send operation.</returns>
     ValueTask PublishAsync<T>(string subject, T data, Action<T, IBufferWriter<byte>> serializer, NatsHeaders? headers = default, string? replyTo = default, NatsPubOpts? opts = default, CancellationToken cancellationToken = default);
 
+    ValueTask PublishAsync(string subject, ReadOnlyMemory<byte> payload, NatsHeaders? headers = default, string? replyTo = default, NatsPubOpts? opts = default, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Publishes an empty message payload to the given subject name, optionally supplying a reply subject.
     /// </summary>
