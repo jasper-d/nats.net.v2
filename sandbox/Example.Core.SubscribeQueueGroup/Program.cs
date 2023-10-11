@@ -1,4 +1,6 @@
 // > nats pub foo.xyz --count=10 "my_message_{{ Count }}"
+
+using System.Text;
 using Microsoft.Extensions.Logging;
 using NATS.Client.Core;
 
@@ -10,8 +12,18 @@ var options = NatsOpts.Default with { LoggerFactory = new MinimumConsoleLoggerFa
 Print("[1][CON] Connecting...\n");
 await using var connection1 = new NatsConnection(options);
 
+var subOpts = new NatsSubOpts<string>()
+{
+    Serializer = static owner =>
+    {
+        var str = Encoding.ASCII.GetString(owner.Memory.Span);
+        owner.Dispose();
+        return str;
+    },
+};
+
 Print($"[1][SUB] Subscribing to subject '{subject}'...\n");
-var sub1 = await connection1.SubscribeAsync<string>(subject, queueGroup: "My-Workers");
+var sub1 = await connection1.SubscribeAsync(subject, subOpts, queueGroup: "My-Workers");
 var task1 = Task.Run(async () =>
 {
     await foreach (var msg in sub1.Msgs.ReadAllAsync())
@@ -26,7 +38,7 @@ Print("[2][CON] Connecting...\n");
 await using var connection2 = new NatsConnection(options);
 
 Print($"[2][SUB] Subscribing to subject '{subject}'...\n");
-var sub2 = await connection2.SubscribeAsync<string>(subject, queueGroup: "My-Workers");
+var sub2 = await connection2.SubscribeAsync<string>(subject, subOpts, queueGroup: "My-Workers");
 var task2 = Task.Run(async () =>
 {
     await foreach (var msg in sub2.Msgs.ReadAllAsync())

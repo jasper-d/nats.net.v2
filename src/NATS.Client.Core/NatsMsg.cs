@@ -27,9 +27,18 @@ public readonly record struct NatsMsg<T>(
     string? ReplyTo,
     int Size,
     NatsHeaders? Headers,
-    T? Data,
+    T Data,
     INatsConnection? Connection)
 {
+    private sealed class NullOwner : IMemoryOwner<byte>
+    {
+        public Memory<byte> Memory { get; set; }
+
+        public void Dispose()
+        {
+        }
+    }
+
     internal static NatsMsg<T> Build(
         string subject,
         string? replyTo,
@@ -37,14 +46,12 @@ public readonly record struct NatsMsg<T>(
         in ReadOnlySequence<byte> payloadBuffer,
         INatsConnection? connection,
         NatsHeaderParser headerParser,
-        INatsSerializer serializer)
+        Func<IMemoryOwner<byte>, T> serializer)
     {
         // Consider an empty payload as null or default value for value types. This way we are able to
         // receive sentinels as nulls or default values. This might cause an issue with where we are not
         // able to differentiate between an empty sentinel and actual default value of a struct e.g. 0 (zero).
-        var data = payloadBuffer.Length > 0
-            ? serializer.Deserialize<T>(payloadBuffer)
-            : default;
+        T data = serializer(new NullOwner { Memory = payloadBuffer.ToArray() });
 
         NatsHeaders? headers = null;
 
@@ -71,6 +78,7 @@ public readonly record struct NatsMsg<T>(
     /// Reply to this message.
     /// </summary>
     /// <param name="data">Serializable data object.</param>
+    /// <param name="serializer"></param>
     /// <param name="headers">Optional message headers.</param>
     /// <param name="replyTo">Optional reply-to subject.</param>
     /// <param name="opts">A <see cref="NatsPubOpts"/> for publishing options.</param>
@@ -80,16 +88,17 @@ public readonly record struct NatsMsg<T>(
     /// <remarks>
     /// Publishes a new message using the reply-to subject from the this message as the destination subject.
     /// </remarks>
-    public ValueTask ReplyAsync<TReply>(TReply data, NatsHeaders? headers = default, string? replyTo = default, NatsPubOpts? opts = default, CancellationToken cancellationToken = default)
+    public ValueTask ReplyAsync<TReply>(TReply data, Action<TReply, IBufferWriter<byte>> serializer, NatsHeaders? headers = default, string? replyTo = default, NatsPubOpts? opts = default, CancellationToken cancellationToken = default)
     {
         CheckReplyPreconditions();
-        return Connection.PublishAsync(ReplyTo!, data, headers, replyTo, opts, cancellationToken);
+        return Connection.PublishAsync(ReplyTo!, data, serializer, headers, replyTo, opts, cancellationToken);
     }
 
     /// <summary>
     /// Reply to this message.
     /// </summary>
     /// <param name="msg">A <see cref="NatsMsg{T}"/> representing message details.</param>
+    /// <param name="serializer"></param>
     /// <param name="opts">A <see cref="NatsPubOpts"/> for publishing options.</param>
     /// <param name="cancellationToken">A <see cref="CancellationToken"/> used to cancel the command.</param>
     /// <typeparam name="TReply">Specifies the type of data that may be sent to the NATS Server.</typeparam>
@@ -97,10 +106,10 @@ public readonly record struct NatsMsg<T>(
     /// <remarks>
     /// Publishes a new message using the reply-to subject from the this message as the destination subject.
     /// </remarks>
-    public ValueTask ReplyAsync<TReply>(NatsMsg<TReply> msg, NatsPubOpts? opts = default, CancellationToken cancellationToken = default)
+    public ValueTask ReplyAsync<TReply>(NatsMsg<TReply> msg, Action<TReply, IBufferWriter<byte>> serializer, NatsPubOpts? opts = default, CancellationToken cancellationToken = default)
     {
         CheckReplyPreconditions();
-        return Connection.PublishAsync(msg with { Subject = ReplyTo! }, opts, cancellationToken);
+        return Connection.PublishAsync(msg with { Subject = ReplyTo! }, serializer, opts, cancellationToken);
     }
 
     [MemberNotNull(nameof(Connection))]

@@ -44,7 +44,7 @@ public abstract class NatsSubBase
         ISubscriptionManager manager,
         string subject,
         string? queueGroup,
-        NatsSubOpts? opts)
+        NatsSubOptsBase? opts)
     {
         _logger = connection.Opts.LoggerFactory.CreateLogger<NatsSubBase>();
         _debug = _logger.IsEnabled(LogLevel.Debug);

@@ -47,7 +47,7 @@ internal sealed class SubscriptionManager : ISubscriptionManager, IAsyncDisposab
 
     internal InboxSubBuilder InboxSubBuilder { get; }
 
-    public async ValueTask SubscribeAsync(string subject, string? queueGroup, NatsSubOpts? opts, NatsSubBase sub, CancellationToken cancellationToken)
+    public async ValueTask SubscribeAsync<T>(string subject, string? queueGroup, NatsSubOpts<T> opts, NatsSubBase sub, CancellationToken cancellationToken)
     {
         if (IsInboxSubject(subject))
         {
@@ -171,7 +171,7 @@ internal sealed class SubscriptionManager : ISubscriptionManager, IAsyncDisposab
         return this;
     }
 
-    private async ValueTask SubscribeInboxAsync(string subject, NatsSubOpts? opts, NatsSubBase sub, CancellationToken cancellationToken)
+    private async ValueTask SubscribeInboxAsync<T>(string subject, NatsSubOpts<T> opts, NatsSubBase sub, CancellationToken cancellationToken)
     {
         if (Interlocked.CompareExchange(ref _inboxSub, _inboxSubSentinel, _inboxSubSentinel) == _inboxSubSentinel)
         {
@@ -185,7 +185,7 @@ internal sealed class SubscriptionManager : ISubscriptionManager, IAsyncDisposab
                     await SubscribeInternalAsync(
                         inboxSubject,
                         queueGroup: default,
-                        opts: default,
+                        opts,
                         _inboxSub,
                         cancellationToken).ConfigureAwait(false);
                 }
@@ -199,7 +199,7 @@ internal sealed class SubscriptionManager : ISubscriptionManager, IAsyncDisposab
         await InboxSubBuilder.RegisterAsync(sub).ConfigureAwait(false);
     }
 
-    private async ValueTask SubscribeInternalAsync(string subject, string? queueGroup, NatsSubOpts? opts, NatsSubBase sub, CancellationToken cancellationToken)
+    private async ValueTask SubscribeInternalAsync(string subject, string? queueGroup, NatsSubOptsBase opts, NatsSubBase sub, CancellationToken cancellationToken)
     {
         var sid = GetNextSid();
         lock (_gate)

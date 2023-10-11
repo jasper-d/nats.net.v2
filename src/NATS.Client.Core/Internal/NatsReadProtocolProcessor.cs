@@ -63,7 +63,7 @@ internal sealed class NatsReadProtocolProcessor : IAsyncDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int GetCode(ReadOnlySpan<byte> span)
     {
-        return Unsafe.ReadUnaligned<int>(ref MemoryMarshal.GetReference<byte>(span));
+        return Unsafe.ReadUnaligned<int>(ref MemoryMarshal.GetReference(span));
     }
 
     private static int GetCode(in ReadOnlySequence<byte> sequence)

@@ -1,3 +1,4 @@
+using NATS.Client.Core;
 using NATS.Client.JetStream.Models;
 
 namespace NATS.Client.JetStream;
@@ -133,9 +134,11 @@ public class NatsJSStream
     /// <exception cref="NatsJSException">There was an issue retrieving the response.</exception>
     /// <exception cref="NatsJSApiException">Server responded with an error.</exception>
     public async ValueTask RefreshAsync(CancellationToken cancellationToken = default) =>
-        Info = await _context.JSRequestResponseAsync<object, StreamInfoResponse>(
+        Info = await _context.JSRequestResponseAsync<object?, StreamInfoResponse>(
             subject: $"{_context.Opts.Prefix}.STREAM.INFO.{_name}",
             request: null,
+            serialize: (_, _) => { },
+            subOpts: JsSubOpts<StreamInfoResponse>.Instance,
             cancellationToken).ConfigureAwait(false);
 
     private void ThrowIfDeleted()
@@ -143,4 +146,15 @@ public class NatsJSStream
         if (_deleted)
             throw new NatsJSException($"Stream '{_name}' is deleted");
     }
+}
+
+// This is just here to help getting JS compile
+internal sealed record JsSubOpts<T> : NatsSubOpts<T>
+{
+    private JsSubOpts()
+    {
+        Serializer = owner => throw new NotImplementedException();
+    }
+
+    public static JsSubOpts<T> Instance { get; } = new();
 }

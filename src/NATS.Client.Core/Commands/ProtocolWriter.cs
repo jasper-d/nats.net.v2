@@ -98,7 +98,7 @@ internal sealed class ProtocolWriter
         _writer.WriteNewLine();
     }
 
-    public void WritePublish<T>(string subject, string? replyTo, NatsHeaders? headers, T? value, INatsSerializer serializer)
+    public void WritePublish<T>(string subject, string? replyTo, NatsHeaders? headers, T? value, Action<T, IBufferWriter<byte>> serializer)
     {
         _bufferPayload.Reset();
 
@@ -107,7 +107,7 @@ internal sealed class ProtocolWriter
         // as a string "null", others might throw exception.
         if (value != null)
         {
-            serializer.Serialize(_bufferPayload, value);
+            serializer(value, _bufferPayload);
         }
 
         var payload = new ReadOnlySequence<byte>(_bufferPayload.WrittenMemory);

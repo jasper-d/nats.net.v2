@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -7,23 +8,24 @@ namespace NATS.Client.Core;
 
 public partial class NatsConnection
 {
-    private static readonly NatsSubOpts DefaultReplyOpts = new() { MaxMsgs = 1 };
+    private static readonly NatsSubOptsBase DefaultReplyOpts = NatsSubOptsBase.Default.Instance;
 
     /// <inheritdoc />
     public string NewInbox() => NewInbox(InboxPrefix);
 
     /// <inheritdoc />
-    public async ValueTask<NatsMsg<TReply?>?> RequestAsync<TRequest, TReply>(
+    public async ValueTask<NatsMsg<TReply>> RequestAsync<TRequest, TReply>(
         string subject,
-        TRequest? data,
+        TRequest data,
+        Action<TRequest, IBufferWriter<byte>> serializer,
+        NatsSubOpts<TReply> replyOpts,
         NatsHeaders? headers = default,
         NatsPubOpts? requestOpts = default,
-        NatsSubOpts? replyOpts = default,
         CancellationToken cancellationToken = default)
     {
         var opts = SetReplyOptsDefaults(replyOpts);
 
-        await using var sub = await RequestSubAsync<TRequest, TReply>(subject, data, headers, requestOpts, opts, cancellationToken)
+        await using var sub = await RequestSubAsync(subject, data, serializer, opts, headers, requestOpts, cancellationToken)
             .ConfigureAwait(false);
 
         if (await sub.Msgs.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
@@ -34,19 +36,20 @@ public partial class NatsConnection
             }
         }
 
-        return null;
+        throw new Exception("Nobody responding :(");
     }
 
     /// <inheritdoc />
-    public async IAsyncEnumerable<NatsMsg<TReply?>> RequestManyAsync<TRequest, TReply>(
+    public async IAsyncEnumerable<NatsMsg<TReply>> RequestManyAsync<TRequest, TReply>(
         string subject,
         TRequest? data,
+        Action<TRequest, IBufferWriter<byte>> serializer,
+        NatsSubOpts<TReply> replyOpts,
         NatsHeaders? headers = default,
         NatsPubOpts? requestOpts = default,
-        NatsSubOpts? replyOpts = default,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await using var sub = await RequestSubAsync<TRequest, TReply>(subject, data, headers, requestOpts, replyOpts, cancellationToken)
+        await using var sub = await RequestSubAsync(subject, data, serializer, replyOpts, headers, requestOpts, cancellationToken)
             .ConfigureAwait(false);
 
         while (await sub.Msgs.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
@@ -100,15 +103,13 @@ public partial class NatsConnection
         }
     }
 
-    private NatsSubOpts SetReplyOptsDefaults(NatsSubOpts? replyOpts)
+    private NatsSubOpts<T> SetReplyOptsDefaults<T>(NatsSubOpts<T> replyOpts)
     {
-        var opts = replyOpts ?? DefaultReplyOpts;
-
-        if ((opts.Timeout ?? default) == default)
+        if ((replyOpts.Timeout ?? default) == default)
         {
-            opts = opts with { Timeout = Opts.RequestTimeout };
+            return replyOpts with { Timeout = Opts.RequestTimeout };
         }
 
-        return opts;
+        return replyOpts;
     }
 }

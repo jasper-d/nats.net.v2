@@ -1,4 +1,6 @@
+using System.Buffers;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using NATS.Client.Core;
 using NATS.Client.JetStream.Internal;
 using NATS.Client.JetStream.Models;
@@ -35,9 +37,11 @@ public partial class NatsJSContext
     /// <param name="cancellationToken">A <see cref="CancellationToken"/> used to cancel the API call.</param>
     /// <returns>The account information based on the NATS connection credentials.</returns>
     public ValueTask<AccountInfoResponse> GetAccountInfoAsync(CancellationToken cancellationToken = default) =>
-        JSRequestResponseAsync<object, AccountInfoResponse>(
+        JSRequestResponseAsync(
             subject: $"{Opts.Prefix}.INFO",
-            request: null,
+            request: default(object),
+            serialize: (_, _) => { },
+            subOpts: JsSubOpts<AccountInfoResponse>.Instance,
             cancellationToken);
 
     /// <summary>
@@ -45,6 +49,7 @@ public partial class NatsJSContext
     /// </summary>
     /// <param name="subject">Subject to publish the data to.</param>
     /// <param name="data">Data to publish.</param>
+    /// <param name="serialize"></param>
     /// <param name="msgId">Sets <c>Nats-Msg-Id</c> header for idempotent message writes.</param>
     /// <param name="headers">Optional message headers.</param>
     /// <param name="opts">Options to be used by publishing command.</param>
@@ -70,6 +75,7 @@ public partial class NatsJSContext
     public async ValueTask<PubAckResponse> PublishAsync<T>(
         string subject,
         T? data,
+        Action<T, IBufferWriter<byte>> serialize,
         string? msgId = default,
         NatsHeaders? headers = default,
         NatsPubOpts? opts = default,
@@ -81,13 +87,14 @@ public partial class NatsJSContext
             headers["Nats-Msg-Id"] = msgId;
         }
 
-        await using var sub = await Connection.RequestSubAsync<T, PubAckResponse>(
+        await using INatsSub<PubAckResponse?> sub = await Connection.RequestSubAsync(
                 subject: subject,
                 data: data,
-                headers: headers,
+                serialize: serialize,
                 requestOpts: opts,
-                replyOpts: default,
-                cancellationToken)
+                headers: headers,
+                replyOpts: _puckAckSubOpts,
+                cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         if (await sub.Msgs.WaitToReadAsync(cancellationToken).ConfigureAwait(false))
@@ -106,25 +113,31 @@ public partial class NatsJSContext
         throw new NatsJSException("No response received");
     }
 
+    private static NatsSubOpts<PubAckResponse?> _puckAckSubOpts = new() { Serializer = owner => JsonSerializer.Deserialize<PubAckResponse>(owner.Memory.Span) };
+
     internal string NewInbox() => $"{Connection.Opts.InboxPrefix}.{Guid.NewGuid():n}";
 
     internal async ValueTask<TResponse> JSRequestResponseAsync<TRequest, TResponse>(
         string subject,
-        TRequest? request,
+        TRequest request,
+        Action<TRequest, IBufferWriter<byte>> serialize,
+        NatsSubOpts<TResponse> subOpts,
         CancellationToken cancellationToken = default)
-        where TRequest : class
+        where TRequest : class?
         where TResponse : class
     {
-        var response = await JSRequestAsync<TRequest, TResponse>(subject, request, cancellationToken);
+        var response = await JSRequestAsync(subject, request, serialize, subOpts, cancellationToken);
         response.EnsureSuccess();
         return response.Response!;
     }
 
     internal async ValueTask<NatsJSResponse<TResponse>> JSRequestAsync<TRequest, TResponse>(
         string subject,
-        TRequest? request,
+        TRequest request,
+        Action<TRequest, IBufferWriter<byte>> serialize,
+        NatsSubOpts<TResponse> subOpts,
         CancellationToken cancellationToken = default)
-        where TRequest : class
+        where TRequest : class?
         where TResponse : class
     {
         if (request != null)
@@ -135,9 +148,10 @@ public partial class NatsJSContext
         await using var sub = await Connection.RequestSubAsync<TRequest, TResponse>(
                 subject: subject,
                 data: request,
+                serialize: serialize,
+                replyOpts: subOpts,
                 headers: default,
                 requestOpts: default,
-                replyOpts: new NatsSubOpts { Serializer = NatsJSErrorAwareJsonSerializer.Default },
                 cancellationToken)
             .ConfigureAwait(false);
 

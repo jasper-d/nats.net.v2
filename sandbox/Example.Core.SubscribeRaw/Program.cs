@@ -10,8 +10,9 @@ Print("[CON] Connecting...\n");
 await using var connection = new NatsConnection(options);
 
 Print($"[SUB] Subscribing to subject '{subject}'...\n");
+var subOpts = new NatsSubOpts<byte[]> { Serializer = static owner => owner.Memory.ToArray(), };
 
-var sub = await connection.SubscribeAsync<byte[]>(subject);
+var sub = await connection.SubscribeAsync(subject, subOpts);
 
 await foreach (var msg in sub.Msgs.ReadAllAsync())
 {

@@ -1,17 +1,18 @@
+using System.Buffers;
 using System.Threading.Channels;
 
 namespace NATS.Client.Core;
 
-public record NatsSubOpts
+public abstract record NatsSubOptsBase
 {
-    /// <summary>
-    /// Serializer to use to deserialize the message if a model is being used.
-    /// </summary>
-    /// <remarks>
-    /// If not set, serializer set in connection options or the default JSON serializer
-    /// will be used.
-    /// </remarks>
-    public INatsSerializer? Serializer { get; init; }
+    internal sealed record Default : NatsSubOptsBase
+    {
+        private Default()
+        {
+        }
+
+        public static Default Instance { get; } = new() { MaxMsgs = 1 };
+    }
 
     /// <summary>
     /// Number of messages to wait for before automatically unsubscribing.
@@ -55,4 +56,16 @@ public record NatsSubOpts
     /// Allows Configuration of <see cref="Channel"/> options for a subscription.
     /// </summary>
     public NatsSubChannelOpts? ChannelOpts { get; init; }
+}
+
+public record NatsSubOpts<T> : NatsSubOptsBase
+{
+    /// <summary>
+    /// Serializer to use to deserialize the message if a model is being used.
+    /// </summary>
+    /// <remarks>
+    /// If not set, serializer set in connection options or the default JSON serializer
+    /// will be used.
+    /// </remarks>
+    public Func<IMemoryOwner<byte>, T> Serializer { get; init; }
 }

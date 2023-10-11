@@ -109,6 +109,17 @@ public readonly struct NatsJSMsg<T>
 
         return _msg.ReplyAsync(
             data: payload,
+            serializer: (sequence, writer) =>
+            {
+                var buffer = writer.GetMemory((int)sequence.Length);
+                foreach (var segment in sequence)
+                {
+                    segment.CopyTo(buffer);
+                    buffer = buffer.Slice(segment.Length);
+                }
+
+                writer.Advance((int)sequence.Length);
+            },
             opts: new NatsPubOpts
             {
                 WaitUntilSent = opts.WaitUntilSent ?? _context.Opts.AckOpts.WaitUntilSent,

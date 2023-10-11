@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace NATS.Client.Core;
 
 public static class NatsRequestExtensions
@@ -8,6 +10,7 @@ public static class NatsRequestExtensions
     /// <param name="nats">NATS connection</param>
     /// <param name="msg">Message to be sent as request</param>
     /// <param name="requestOpts">Request publish options</param>
+    /// <param name="serialize"></param>
     /// <param name="replyOpts">Reply handler subscription options</param>
     /// <param name="cancellationToken">Cancel this request</param>
     /// <typeparam name="TRequest">Request type</typeparam>
@@ -19,21 +22,23 @@ public static class NatsRequestExtensions
     /// Reply option's max messages will be set to 1.
     /// if reply option's timeout is not defined then it will be set to NatsOpts.RequestTimeout.
     /// </remarks>
-    public static ValueTask<NatsMsg<TReply?>?> RequestAsync<TRequest, TReply>(
+    public static ValueTask<NatsMsg<TReply>> RequestAsync<TRequest, TReply>(
         this INatsConnection nats,
         in NatsMsg<TRequest> msg,
+        Action<TRequest, IBufferWriter<byte>> serialize,
+        NatsSubOpts<TReply> replyOpts,
         NatsPubOpts? requestOpts = default,
-        NatsSubOpts? replyOpts = default,
         CancellationToken cancellationToken = default)
     {
         CheckMsgForRequestReply(msg);
 
-        return nats.RequestAsync<TRequest, TReply>(
+        return nats.RequestAsync(
             msg.Subject,
             msg.Data,
+            serialize,
+            replyOpts,
             msg.Headers,
             requestOpts,
-            replyOpts,
             cancellationToken);
     }
 

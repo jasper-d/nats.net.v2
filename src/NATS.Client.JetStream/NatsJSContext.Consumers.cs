@@ -57,9 +57,11 @@ public partial class NatsJSContext
                                       "'ack_policy' must be set to 'explicit' or 'all' for pull consumers");
         }
 
-        var response = await JSRequestResponseAsync<ConsumerCreateRequest, ConsumerInfo>(
+        var response = await JSRequestResponseAsync(
             subject: $"{Opts.Prefix}.CONSUMER.CREATE.{request.StreamName}.{request.Config.Name}",
             request,
+            serialize: (_, _) => { /* TODO */ },
+            subOpts: JsSubOpts<ConsumerInfo>.Instance,
             cancellationToken);
         return new NatsJSConsumer(this, response);
     }
@@ -75,9 +77,11 @@ public partial class NatsJSContext
     /// <exception cref="NatsJSApiException">Server responded with an error.</exception>
     public async ValueTask<NatsJSConsumer> GetConsumerAsync(string stream, string consumer, CancellationToken cancellationToken = default)
     {
-        var response = await JSRequestResponseAsync<object, ConsumerInfo>(
+        var response = await JSRequestResponseAsync(
             subject: $"{Opts.Prefix}.CONSUMER.INFO.{stream}.{consumer}",
-            request: null,
+            request: default(object),
+            serialize: (_, _) => { },
+            subOpts: JsSubOpts<ConsumerInfo>.Instance,
             cancellationToken);
         return new NatsJSConsumer(this, response);
     }
@@ -97,9 +101,11 @@ public partial class NatsJSContext
         string stream,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var response = await JSRequestResponseAsync<ConsumerListRequest, ConsumerListResponse>(
+        var response = await JSRequestResponseAsync(
             subject: $"{Opts.Prefix}.CONSUMER.LIST.{stream}",
             new ConsumerListRequest { Offset = 0 },
+            serialize: (_, _) => { /* TODO */ },
+            subOpts: JsSubOpts<ConsumerListResponse>.Instance,
             cancellationToken);
         foreach (var consumer in response.Consumers)
             yield return new NatsJSConsumer(this, consumer);
@@ -116,9 +122,11 @@ public partial class NatsJSContext
     /// <exception cref="NatsJSApiException">Server responded with an error.</exception>
     public async ValueTask<bool> DeleteConsumerAsync(string stream, string consumer, CancellationToken cancellationToken = default)
     {
-        var response = await JSRequestResponseAsync<object, ConsumerDeleteResponse>(
+        var response = await JSRequestResponseAsync(
             subject: $"{Opts.Prefix}.CONSUMER.DELETE.{stream}.{consumer}",
-            request: null,
+            request: default(object),
+            serialize: (_, _) => { },
+            subOpts: JsSubOpts<ConsumerDeleteResponse>.Instance,
             cancellationToken);
         return response.Success;
     }

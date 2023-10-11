@@ -1,3 +1,5 @@
+using System.Buffers;
+
 namespace NATS.Client.Core;
 
 public partial class NatsConnection
@@ -5,26 +7,24 @@ public partial class NatsConnection
     internal async ValueTask<INatsSub<TReply>> RequestSubAsync<TRequest, TReply>(
         string subject,
         TRequest? data,
+        Action<TRequest, IBufferWriter<byte>> serialize,
+        NatsSubOpts<TReply> replyOpts,
         NatsHeaders? headers = default,
         NatsPubOpts? requestOpts = default,
-        NatsSubOpts? replyOpts = default,
         CancellationToken cancellationToken = default)
     {
         var replyTo = NewInbox();
 
-        var replySerializer = replyOpts?.Serializer ?? Opts.Serializer;
-        var sub = new NatsSub<TReply>(this, SubscriptionManager.InboxSubBuilder, replyTo, queueGroup: default, replyOpts, replySerializer);
+        var sub = new NatsSub<TReply>(this, SubscriptionManager.InboxSubBuilder, replyTo, queueGroup: default, replyOpts);
         await SubAsync(replyTo, queueGroup: default, replyOpts, sub, cancellationToken).ConfigureAwait(false);
-
-        var serializer = requestOpts?.Serializer ?? Opts.Serializer;
 
         if (requestOpts?.WaitUntilSent == true)
         {
-            await PubModelAsync(subject, data, serializer, replyTo, headers, cancellationToken).ConfigureAwait(false);
+            await PubModelAsync(subject, data, serialize, replyTo, headers, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            await PubModelPostAsync(subject, data, serializer, replyTo, headers, requestOpts?.ErrorHandler, cancellationToken).ConfigureAwait(false);
+            await PubModelPostAsync(subject, data, serialize, replyTo, headers, requestOpts?.ErrorHandler, cancellationToken).ConfigureAwait(false);
         }
 
         return sub;

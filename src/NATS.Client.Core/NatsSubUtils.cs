@@ -7,30 +7,29 @@ namespace NATS.Client.Core;
 
 public sealed class NatsSub<T> : NatsSubBase, INatsSub<T>
 {
-    private readonly Channel<NatsMsg<T?>> _msgs;
+    private readonly Channel<NatsMsg<T>> _msgs;
 
     internal NatsSub(
         NatsConnection connection,
         ISubscriptionManager manager,
         string subject,
         string? queueGroup,
-        NatsSubOpts? opts,
-        INatsSerializer serializer)
+        NatsSubOpts<T> opts)
         : base(connection, manager, subject, queueGroup, opts)
     {
-        _msgs = Channel.CreateBounded<NatsMsg<T?>>(
-            NatsSubUtils.GetChannelOpts(opts?.ChannelOpts));
+        _msgs = Channel.CreateBounded<NatsMsg<T>>(
+            NatsSubUtils.GetChannelOpts(opts.ChannelOpts));
 
-        Serializer = serializer;
+        Serializer = opts.Serializer;
     }
 
-    public ChannelReader<NatsMsg<T?>> Msgs => _msgs.Reader;
+    public ChannelReader<NatsMsg<T>> Msgs => _msgs.Reader;
 
-    private INatsSerializer Serializer { get; }
+    private Func<IMemoryOwner<byte>, T> Serializer { get; }
 
     protected override async ValueTask ReceiveInternalAsync(string subject, string? replyTo, ReadOnlySequence<byte>? headersBuffer, ReadOnlySequence<byte> payloadBuffer)
     {
-        var natsMsg = NatsMsg<T?>.Build(
+        var natsMsg = NatsMsg<T>.Build(
             subject,
             replyTo,
             headersBuffer,

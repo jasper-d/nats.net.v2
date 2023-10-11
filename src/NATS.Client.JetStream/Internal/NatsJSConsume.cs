@@ -19,12 +19,13 @@ internal class NatsJSConsume<TMsg> : NatsSubBase, INatsJSConsume<TMsg>
 {
     private readonly ILogger _logger;
     private readonly bool _debug;
-    private readonly Channel<NatsJSMsg<TMsg?>> _userMsgs;
+    private readonly Channel<NatsJSMsg<TMsg>> _userMsgs;
     private readonly Channel<PullRequest> _pullRequests;
     private readonly NatsJSContext _context;
     private readonly string _stream;
     private readonly string _consumer;
-    private readonly INatsSerializer _serializer;
+    private readonly Func<IMemoryOwner<byte>, TMsg> _serializer;
+    private readonly Action<ConsumerGetnextRequest, IBufferWriter<byte>> _serializer2;
     private readonly Timer _timer;
     private readonly Task _pullTask;
 
@@ -52,7 +53,7 @@ internal class NatsJSConsume<TMsg> : NatsSubBase, INatsJSConsume<TMsg>
         string consumer,
         string subject,
         string? queueGroup,
-        NatsSubOpts? opts)
+        NatsSubOpts<TMsg> opts)
         : base(context.Connection, context.Connection.SubscriptionManager, subject, queueGroup, opts)
     {
         _logger = Connection.Opts.LoggerFactory.CreateLogger<NatsJSConsume<TMsg>>();
@@ -60,7 +61,7 @@ internal class NatsJSConsume<TMsg> : NatsSubBase, INatsJSConsume<TMsg>
         _context = context;
         _stream = stream;
         _consumer = consumer;
-        _serializer = opts?.Serializer ?? context.Connection.Opts.Serializer;
+        _serializer = opts.Serializer;
 
         _maxMsgs = maxMsgs;
         _thresholdMsgs = thresholdMsgs;
@@ -105,7 +106,7 @@ internal class NatsJSConsume<TMsg> : NatsSubBase, INatsJSConsume<TMsg>
             Timeout.Infinite,
             Timeout.Infinite);
 
-        _userMsgs = Channel.CreateBounded<NatsJSMsg<TMsg?>>(NatsSubUtils.GetChannelOpts(opts?.ChannelOpts));
+        _userMsgs = Channel.CreateBounded<NatsJSMsg<TMsg>>(NatsSubUtils.GetChannelOpts(opts?.ChannelOpts));
         Msgs = _userMsgs.Reader;
 
         _pullRequests = Channel.CreateBounded<PullRequest>(NatsSubUtils.GetChannelOpts(opts?.ChannelOpts));
@@ -114,7 +115,7 @@ internal class NatsJSConsume<TMsg> : NatsSubBase, INatsJSConsume<TMsg>
         ResetPending();
     }
 
-    public ChannelReader<NatsJSMsg<TMsg?>> Msgs { get; }
+    public ChannelReader<NatsJSMsg<TMsg>> Msgs { get; }
 
     public void Stop() => EndSubscription(NatsSubEndReason.None);
 
@@ -128,7 +129,7 @@ internal class NatsJSConsume<TMsg> : NatsSubBase, INatsJSConsume<TMsg>
         return Connection.PubModelAsync(
             subject: $"{_context.Opts.Prefix}.CONSUMER.MSG.NEXT.{_stream}.{_consumer}",
             data: request,
-            serializer: NatsJsonSerializer.Default,
+            serializer: _serializer2,
             replyTo: Subject,
             headers: default,
             cancellationToken);
@@ -164,7 +165,7 @@ internal class NatsJSConsume<TMsg> : NatsSubBase, INatsJSConsume<TMsg>
             replyTo: Subject,
             headers: default,
             value: request,
-            serializer: NatsJsonSerializer.Default,
+            serializer: _serializer2,
             errorHandler: default,
             cancellationToken: default);
     }
@@ -283,8 +284,8 @@ internal class NatsJSConsume<TMsg> : NatsSubBase, INatsJSConsume<TMsg>
         }
         else
         {
-            var msg = new NatsJSMsg<TMsg?>(
-                NatsMsg<TMsg?>.Build(
+            var msg = new NatsJSMsg<TMsg>(
+                NatsMsg<TMsg>.Build(
                     subject,
                     replyTo,
                     headersBuffer,

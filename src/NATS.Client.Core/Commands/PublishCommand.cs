@@ -9,7 +9,7 @@ internal sealed class PublishCommand<T> : CommandBase<PublishCommand<T>>
     private string? _replyTo;
     private NatsHeaders? _headers;
     private T? _value;
-    private INatsSerializer? _serializer;
+    private Action<T, IBufferWriter<byte>>? _serializer;
     private Action<Exception>? _errorHandler;
     private CancellationToken _cancellationToken;
 
@@ -19,7 +19,7 @@ internal sealed class PublishCommand<T> : CommandBase<PublishCommand<T>>
 
     public override bool IsCanceled => _cancellationToken.IsCancellationRequested;
 
-    public static PublishCommand<T> Create(ObjectPool pool, string subject, string? replyTo, NatsHeaders? headers, T? value, INatsSerializer serializer, Action<Exception>? errorHandler, CancellationToken cancellationToken)
+    public static PublishCommand<T> Create(ObjectPool pool, string subject, string? replyTo, NatsHeaders? headers, T? value, Action<T, IBufferWriter<byte>> serializer, Action<Exception>? errorHandler, CancellationToken cancellationToken)
     {
         if (!TryRent(pool, out var result))
         {
@@ -72,7 +72,7 @@ internal sealed class PublishCommand<T> : CommandBase<PublishCommand<T>>
         _subject = default;
         _headers = default;
         _value = default;
-        _serializer = null;
+        _serializer = null!;
         _errorHandler = default;
         _cancellationToken = default;
     }
@@ -129,13 +129,13 @@ internal sealed class AsyncPublishCommand<T> : AsyncCommandBase<AsyncPublishComm
     private string? _replyTo;
     private NatsHeaders? _headers;
     private T? _value;
-    private INatsSerializer? _serializer;
+    private Action<T, IBufferWriter<byte>>? _serializer;
 
     private AsyncPublishCommand()
     {
     }
 
-    public static AsyncPublishCommand<T> Create(ObjectPool pool, CancellationTimer timer, string subject, string? replyTo, NatsHeaders? headers, T? value, INatsSerializer serializer)
+    public static AsyncPublishCommand<T> Create(ObjectPool pool, CancellationTimer timer, string subject, string? replyTo, NatsHeaders? headers, T? value, Action<T, IBufferWriter<byte>> serializer)
     {
         if (!TryRent(pool, out var result))
         {

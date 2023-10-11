@@ -16,7 +16,8 @@ internal class NatsJSFetch<TMsg> : NatsSubBase, INatsJSFetch<TMsg>
     private readonly NatsJSContext _context;
     private readonly string _stream;
     private readonly string _consumer;
-    private readonly INatsSerializer _serializer;
+    private readonly Func<IMemoryOwner<byte>, TMsg> _serializer;
+    private readonly Action<ConsumerGetnextRequest, IBufferWriter<byte>> _serializer2;
     private readonly Timer _hbTimer;
     private readonly Timer _expiresTimer;
 
@@ -39,7 +40,7 @@ internal class NatsJSFetch<TMsg> : NatsSubBase, INatsJSFetch<TMsg>
         string consumer,
         string subject,
         string? queueGroup,
-        NatsSubOpts? opts)
+        NatsSubOpts<TMsg> opts)
         : base(context.Connection, context.Connection.SubscriptionManager, subject, queueGroup, opts)
     {
         _logger = Connection.Opts.LoggerFactory.CreateLogger<NatsJSFetch<TMsg>>();
@@ -47,7 +48,7 @@ internal class NatsJSFetch<TMsg> : NatsSubBase, INatsJSFetch<TMsg>
         _context = context;
         _stream = stream;
         _consumer = consumer;
-        _serializer = opts?.Serializer ?? context.Connection.Opts.Serializer;
+        _serializer = opts.Serializer;
 
         _maxMsgs = maxMsgs;
         _maxBytes = maxBytes;
@@ -118,7 +119,7 @@ internal class NatsJSFetch<TMsg> : NatsSubBase, INatsJSFetch<TMsg>
         Connection.PubModelAsync(
             subject: $"{_context.Opts.Prefix}.CONSUMER.MSG.NEXT.{_stream}.{_consumer}",
             data: request,
-            serializer: NatsJsonSerializer.Default,
+            serializer: _serializer2,
             replyTo: Subject,
             headers: default,
             cancellationToken);
@@ -150,7 +151,7 @@ internal class NatsJSFetch<TMsg> : NatsSubBase, INatsJSFetch<TMsg>
             replyTo: Subject,
             headers: default,
             value: request,
-            serializer: NatsJsonSerializer.Default,
+            serializer: _serializer2,
             errorHandler: default,
             cancellationToken: default);
     }

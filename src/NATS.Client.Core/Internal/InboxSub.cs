@@ -13,7 +13,7 @@ internal class InboxSub : NatsSubBase
     public InboxSub(
         InboxSubBuilder inbox,
         string subject,
-        NatsSubOpts? opts,
+        NatsSubOptsBase? opts,
         NatsConnection connection,
         ISubscriptionManager manager)
     : base(connection, manager, subject, queueGroup: default, opts)
@@ -42,7 +42,7 @@ internal class InboxSubBuilder : ISubscriptionManager
 
     public InboxSubBuilder(ILogger<InboxSubBuilder> logger) => _logger = logger;
 
-    public InboxSub Build(string subject, NatsSubOpts? opts, NatsConnection connection, ISubscriptionManager manager)
+    public InboxSub Build(string subject, NatsSubOptsBase opts, NatsConnection connection, ISubscriptionManager manager)
     {
         return new InboxSub(this, subject, opts, connection, manager);
     }

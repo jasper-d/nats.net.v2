@@ -29,9 +29,11 @@ public partial class NatsJSContext
         StreamConfiguration request,
         CancellationToken cancellationToken = default)
     {
-        var response = await JSRequestResponseAsync<StreamConfiguration, StreamInfo>(
+        var response = await JSRequestResponseAsync(
             subject: $"{Opts.Prefix}.STREAM.CREATE.{request.Name}",
             request,
+            serialize: (_, _) => { /* TODO */ },
+            subOpts: JsSubOpts<StreamInfo>.Instance,
             cancellationToken);
         return new NatsJSStream(this, response);
     }
@@ -48,9 +50,11 @@ public partial class NatsJSContext
         string stream,
         CancellationToken cancellationToken = default)
     {
-        var response = await JSRequestResponseAsync<object, StreamMsgDeleteResponse>(
+        var response = await JSRequestResponseAsync<object?, StreamMsgDeleteResponse>(
             subject: $"{Opts.Prefix}.STREAM.DELETE.{stream}",
             request: null,
+            serialize: (_, _) => { /* TODO */ },
+            subOpts: JsSubOpts<StreamMsgDeleteResponse>.Instance,
             cancellationToken);
         return response.Success;
     }
@@ -67,9 +71,11 @@ public partial class NatsJSContext
         string stream,
         CancellationToken cancellationToken = default)
     {
-        var response = await JSRequestResponseAsync<object, StreamInfoResponse>(
+        var response = await JSRequestResponseAsync<object?, StreamInfoResponse>(
             subject: $"{Opts.Prefix}.STREAM.INFO.{stream}",
             request: null,
+            serialize: (_, _) => { },
+            subOpts: JsSubOpts<StreamInfoResponse>.Instance,
             cancellationToken);
         return new NatsJSStream(this, response);
     }
@@ -86,9 +92,11 @@ public partial class NatsJSContext
         StreamUpdateRequest request,
         CancellationToken cancellationToken = default)
     {
-        var response = await JSRequestResponseAsync<object, StreamUpdateResponse>(
+        var response = await JSRequestResponseAsync<StreamUpdateRequest, StreamUpdateResponse>(
             subject: $"{Opts.Prefix}.STREAM.UPDATE.{request.Name}",
             request: request,
+            serialize: (req, bw) => { /* TODO */ },
+            subOpts: JsSubOpts<StreamUpdateResponse>.Instance,
             cancellationToken);
         return new NatsJSStream(this, response);
     }
@@ -111,6 +119,8 @@ public partial class NatsJSContext
         var response = await JSRequestResponseAsync<StreamListRequest, StreamListResponse>(
             subject: $"{Opts.Prefix}.STREAM.LIST",
             request: new StreamListRequest { Offset = 0, Subject = subject! },
+            serialize: (_, _) => { /* TODO */ },
+            subOpts: JsSubOpts<StreamListResponse>.Instance,
             cancellationToken);
         foreach (var stream in response.Streams)
             yield return new NatsJSStream(this, stream);
