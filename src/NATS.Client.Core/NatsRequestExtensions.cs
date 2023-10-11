@@ -1,9 +1,32 @@
 using System.Buffers;
+using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 
 namespace NATS.Client.Core;
 
 public static class NatsRequestExtensions
 {
+    public static ValueTask PublishJsonAsync<T>(this INatsConnection conn, string subject, T obj, JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken)
+    {
+        // NOTE: This allocates because typeInfo must be captured.
+        //       To avoid the allocation, there could be a PublisAsync overload
+        //       which takes another argument "serializationState" which would
+        //       be passed to the serializer, similar to TState
+        //       ThreadPool.QueueUserWorkItem(Action<TState>, TState, bool) or
+        //       CancellationToken.UnsafeRegister(Action<object> callback, object state)
+        //       As an alternative, users could writer their own extension methods
+        //       for JsonTypeInfo<T> and use the static properties of a generated
+        //       JsonSerializerContext
+        void Serialize(T obj, IBufferWriter<byte> bw)
+        {
+            // This could be pooled
+            using var writer = new Utf8JsonWriter(bw);
+            JsonSerializer.Serialize(writer, obj, typeInfo);
+        }
+
+        return conn.PublishAsync(subject, obj, Serialize, null, null, null, cancellationToken);
+    }
+
     /// <summary>
     /// Request and receive a single reply from a responder.
     /// </summary>
